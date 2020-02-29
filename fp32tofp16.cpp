@@ -1,7 +1,8 @@
 #include <iostream>
 #include <memory.h>
+#include <random>
 
-
+using namespace std;
 
 // print a varible in binary format
 template <typename T>
@@ -24,6 +25,8 @@ void print(T a) {
   std::cout << std::endl;
   free(men);
 }
+
+
 // convert a float32 to float16 store in a unsigned short varible
 unsigned short fp32Tfp16(float a) {
   unsigned short fp16 = 0;  
@@ -53,7 +56,7 @@ unsigned short fp32Tfp16(float a) {
 
 
 // print a float16 store in a unsigned short varible
-void print_fp16(unsigned short a) {
+float fp16Tfp32(unsigned short a) {
   int sign = 0;
   unsigned short sign_mask = 0x8000;
   sign = a & sign_mask ? -1 : 1;
@@ -81,16 +84,61 @@ void print_fp16(unsigned short a) {
   result = sign * result;
   result = result * (1 + (float)f_value/ (1024.0));
 
-  std::cout << result << std::endl;
-
+  return result;
 }
 
+// create a random float data between min and max
+float myRander(float min,float max) {
+  random_device rd;
+  mt19937 eng(rd());
+  uniform_real_distribution<float> dist(min,max);
+  return dist(eng);
+}
 
-
+// test all the funtion
 int main() {
-  float a = 11.13;
-  print(a);
-  unsigned short b = fp32Tfp16(a);
-  print_fp16(b);
+  // float a = 11.13;
+  // print(a);
+  // unsigned short b = fp32Tfp16(a);
+  // print_fp16(b);
+
+  float max = 0;		// recore the max error in the test
+  float max_input = 0;		// recore which input cause the max error
+  float range_min = 65504.0;	//
+  float range_max = 0.00005;
+  for (int i=0; i<100000000; ++i) {			// test i times
+    float input = 0; 
+    if (i % 2) {					// input range from 0.00005 to 65504 and -65504 to -0.00005
+      input =  myRander(0.00005, 65504.0);		// becuase it is the range of float16, out of the range will
+    } else {						// cause higher error
+      input =  myRander(-0.00005, -65504.0);
+    }
+    // float input =  myRander(0.00005, 65504.0);
+    // std::cout << input << "	";
+    // float input = 0.00004;
+    unsigned short mediem = fp32Tfp16(input);		// conver float32 input to float16 output
+    float output = fp16Tfp32(mediem);			// conver float16 to float32
+    // std::cout << output << "	";
+
+    // std::cout << output - input << std::endl;
+    float tmp = 0;					// recore the error between float16 and float32
+    if (input > output) {tmp = input - output;}
+    else {tmp = output - input;}
+
+    input = input > 0 ? input : 0 - input;		// caculate the abs of input
+    if (input < range_min) { range_min = input;}	// recore the max value we have test
+    if (input > range_max) { range_max = input;}	// recore the min value we have test
+
+    tmp = tmp / input;					// caculate the error rate
+
+    if (tmp > max) {					// recore the max error rate
+      max = tmp;					// recore which input cause the max error rate
+      max_input = input;
+    }
+  }
+  // print out the test result
+  std::cout << "when the input is : [" << max_input << "] , wu cha zui da wei : " << max << std::endl;
+  std::cout << "range max : " << range_max << std::endl;
+  std::cout << "range min : " << range_min << std::endl;
   return 0;
 }
